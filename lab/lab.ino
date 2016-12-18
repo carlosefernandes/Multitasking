@@ -12,9 +12,8 @@ const byte interruptPin = 2;
 const byte interruptVccPin = 7;
 
 const TickType_t xDebounceDelay = 200 / portTICK_PERIOD_MS;
-const TickType_t xDelay = 50 / portTICK_PERIOD_MS;
 
-TickType_t xLastWakeTime;
+TickType_t xInitialTime;
 
 void initialize_ADC();
 
@@ -36,29 +35,27 @@ void TaskOutput( void *pvParameters ) {
     const TickType_t xFrequency = 5000 / portTICK_PERIOD_MS;
     for ( ; ; ) {
   
-        vTaskDelayUntil( &xLastWakeTime, xFrequency );
+        vTaskDelayUntil( &xInitialTime, xFrequency );
         float average = sum / count;
         sum = 0;
         count = 0;
-        long resistence = (1023 - average) * 10 / average;
-        long lux = 0;//350 * pow(resistence, -1.43);
-        char output[50];
-        sprintf(output, "Lux %ld resistence %f\n", lux, resistence);
-        Serial.write(output);
+        float R = (1023-average)*10/average;
+        //Serial.print("Average "); Serial.print(average); Serial.print("\n");
+        //Serial.print("R "); Serial.print(R); Serial.print("\n");
+        float lux = 350 * pow(R, -1.43);
         
+        Serial.print("Lux "); Serial.print(lux); Serial.print("\n");
     }
 }
 
 void TaskPlayMelody( void *pvParameters ) {
     for ( ; ; ) {
-        //Serial.print("playMelody");
         play_melody();       
     }
 }
 
 void handleButton() {
     button = 1;
-    Serial.print("handleButton\n");
 }
 
 ISR(ADC_vect){
@@ -67,13 +64,7 @@ ISR(ADC_vect){
     int analogVal = ADCL | (ADCH << 8);
 
     count++;
-    sum += analogVal;
-/*
-    Serial.print("Count: ");
-    Serial.print(count);
-    Serial.print("\n");
-/*    Serial.print(sum);*/
-    
+    sum += analogVal;   
 }
 
 void setup() {
@@ -85,7 +76,7 @@ void setup() {
     
     initialize_ADC();
 
-    xLastWakeTime = xTaskGetTickCount();
+    xInitialTime = xTaskGetTickCount();
 
     xTaskCreate(TaskDiagnostic, (const portCHAR *)"Diagnostic", 128, NULL, 3 , NULL);
     
